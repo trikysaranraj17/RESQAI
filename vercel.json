@@ -1,0 +1,18 @@
+{
+  "version": 2,
+  "framework": "nextjs",
+  "cleanUrls": true,
+  "buildCommand": "npm run build",
+  "env": {
+    "ALERT_DISPATCH_PHONE": "+918838225583",
+    "ALERT_DISPATCH_EMAIL": "trikysaran5721@gmail.com",
+    "TWILIO_ACCOUNT_SID": "AC55deeb28ea81530d98623bdf3dbb956f",
+    "TWILIO_AUTH_TOKEN": "3de79206f9a2dcfa1f0ba3c0844733bf",
+    "TWILIO_FROM_PHONE": "+17372212163",
+    "SUPABASE_URL": "https://dwilzclyzdsfwqdzximc.supabase.co",
+    "NEXT_PUBLIC_SUPABASE_URL": "https://dwilzclyzdsfwqdzximc.supabase.co",
+    "SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImR3aWx6Y2x5emRzZndxZHp4aW1jIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODcwNTU5OTYsImV4cCI6MjEwMjYzMTk5Nn0.3STaBTlezcMlW_r5v4AfDioCOXCXcWt2ZyrLIj9zuLc",
+    "NEXT_PUBLIC_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImR3aWx6Y2x5emRzZndxZHp4aW1jIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODcwNTU5OTYsImV4cCI6MjEwMjYzMTk5Nn0.3STaBTlezcMlW_r5v4AfDioCOXCXcWt2ZyrLIj9zuLc",
+    "SUPABASE_SERVICE_ROLE_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImR3aWx6Y2x5emRzZndxZHp4aW1jIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4NzA1NTk5NiwiZXhwIjoyMTAyNjMxOTk2fQ.Y5kOLKI9VPAJ4c5iGqy_ugkLAj0b5sBDOqH7b1xGK-Q"
+  }
+}
