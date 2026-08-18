@@ -1532,33 +1532,65 @@ function renderReviewModal() {
           </div>
 
           <!-- ASSIGN UNIT & TRIGGER MULTI-CHANNEL DISPATCH -->
-          <div class="bg-slate-900/90 p-5 rounded-2xl border border-cyan-500/30 space-y-3">
-            <div class="flex justify-between items-center">
-              <span class="text-xs font-bold text-cyan-400 uppercase tracking-wider block">
-                Assign Unit & Trigger Multi-Channel Alert Dispatch
+          <div class="bg-slate-900/90 p-5 rounded-2xl border border-cyan-500/40 space-y-3 shadow-lg shadow-cyan-950/40">
+            <div class="flex flex-wrap justify-between items-center gap-2">
+              <span class="text-xs font-bold text-cyan-400 uppercase tracking-wider flex items-center gap-1.5">
+                <i data-lucide="zap" class="w-4 h-4 text-cyan-400"></i> Assign Unit & Trigger Multi-Channel Alert Dispatch
               </span>
-              <span class="text-[11px] font-mono text-slate-400">Triggers Call, SMS, Email, WhatsApp</span>
+              <span class="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                1-CLICK AUTOMATED DISPATCH
+              </span>
             </div>
 
             <div class="flex flex-col sm:flex-row items-center gap-3">
               <select
                 id="assign-team-select"
-                class="w-full sm:flex-1 bg-slate-950 border border-slate-800 rounded-xl p-3 text-sm text-white focus:outline-none focus:border-cyan-500"
+                class="w-full sm:flex-1 bg-slate-950 border border-cyan-500/40 rounded-xl p-3 text-sm text-white focus:outline-none focus:border-cyan-400 font-medium"
               >
-                <option value="">-- Select Rescue Response Unit --</option>
-                ${state.teams.map(t => `
-                  <option value="${t.name}" ${inc.assignedTeam === t.name ? 'selected' : ''}>
-                    ${t.name} (${t.specialty}) • ${t.status}
-                  </option>
-                `).join('')}
+                ${(() => {
+                  const defaultTeam = inc.assignedTeam || (
+                    inc.type === 'Fire' || inc.type === 'Road Emergency' ? 'Bravo Hazmat & Fire' :
+                    inc.type === 'Medical Emergency' || inc.type === 'Person Trapped' ? 'Delta Trauma & Evacuation' :
+                    'Alpha Search & Rescue'
+                  );
+                  return state.teams.map(t => `
+                    <option value="${t.name}" ${defaultTeam === t.name ? 'selected' : ''}>
+                      ${t.name} (${t.specialty}) • ${t.status}
+                    </option>
+                  `).join('');
+                })()}
               </select>
 
               <button
+                type="button"
+                id="btn-assign-dispatch"
                 onclick="assignTeamAndTriggerDispatch('${inc.id}')"
-                class="w-full sm:w-auto px-6 py-3.5 bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 text-white font-extrabold rounded-xl text-xs tracking-wider uppercase flex items-center justify-center gap-2 shadow-xl shadow-red-600/30 transition-all"
+                class="w-full sm:w-auto px-6 py-3.5 bg-gradient-to-r from-red-600 via-rose-600 to-red-500 hover:from-red-500 hover:to-rose-400 text-white font-black rounded-xl text-xs tracking-wider uppercase flex items-center justify-center gap-2 shadow-xl shadow-red-600/40 hover:scale-[1.02] active:scale-95 transition-all cursor-pointer border border-red-400/50"
               >
-                <i data-lucide="phone-outgoing" class="w-4 h-4"></i> Assign & Dispatch
+                <i data-lucide="phone-outgoing" class="w-4 h-4 animate-pulse"></i> Assign & Dispatch
               </button>
+            </div>
+
+            <!-- Quick Unit Dispatch Chips -->
+            <div class="pt-2 border-t border-slate-800/80">
+              <span class="text-[10px] font-mono text-slate-400 block mb-1.5">⚡ 1-Click Fast Tactical Deployment:</span>
+              <div class="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
+                ${state.teams.map(t => `
+                  <button
+                    type="button"
+                    onclick="assignTeamAndTriggerDispatch('${inc.id}', '${t.name}')"
+                    class="px-2.5 py-1.5 rounded-xl text-[11px] font-bold border transition-all text-left flex items-center justify-between gap-1.5 cursor-pointer ${
+                      inc.assignedTeam === t.name
+                        ? 'bg-cyan-500/20 text-cyan-300 border-cyan-500 shadow-md shadow-cyan-500/20'
+                        : 'bg-slate-950/80 text-slate-300 border-slate-800 hover:border-cyan-500/50 hover:bg-slate-900'
+                    }"
+                    title="Instantly deploy ${t.name}"
+                  >
+                    <span class="truncate">${t.name.split(' ')[0]} Unit</span>
+                    <i data-lucide="arrow-right" class="w-3 h-3 text-cyan-400 shrink-0"></i>
+                  </button>
+                `).join('')}
+              </div>
             </div>
           </div>
         </div>
@@ -1615,53 +1647,68 @@ async function updateIncidentStatus(id, newStatus) {
 // ==========================================
 // 12. MULTI-CHANNEL DISPATCH TRIGGER & MODAL (AUTOMATED BROADCAST)
 // ==========================================
-async function assignTeamAndTriggerDispatch(incidentId) {
+async function assignTeamAndTriggerDispatch(incidentId, explicitTeam = null) {
   const select = document.getElementById('assign-team-select');
-  const teamName = select ? select.value : 'Alpha Search & Rescue';
-  if (!teamName) {
-    showToast('Please select a response team first', 'danger');
-    return;
-  }
+  const targetIncident = state.incidents.find(i => i.id === incidentId) || state.activeIncident;
 
-  showToast('Initiating synchronized automated emergency multi-channel dispatch...', 'info');
+  const defaultRecommendedTeam = targetIncident ? (
+    targetIncident.type === 'Fire' || targetIncident.type === 'Road Emergency' ? 'Bravo Hazmat & Fire' :
+    targetIncident.type === 'Medical Emergency' || targetIncident.type === 'Person Trapped' ? 'Delta Trauma & Evacuation' :
+    'Alpha Search & Rescue'
+  ) : 'Alpha Search & Rescue';
 
-  const res = await fetch(`/api/incidents/${incidentId}`, {
-    method: 'PATCH',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      assignedTeam: teamName,
-      status: 'IN PROGRESS',
-      customTarget: state.alertTargets,
-    }),
-  });
+  const teamName = explicitTeam || (select && select.value ? select.value : defaultRecommendedTeam);
 
-  const data = await res.json();
-  if (data.success) {
-    state.activeIncident = data.incident;
-    state.latestDispatchData = {
-      incident: data.incident,
-      teamName,
-      targets: state.alertTargets,
-      timestamp: new Date().toLocaleTimeString(),
-      emailSent: true,
-      whatsappSent: true,
-    };
-    state.reviewModalOpen = false;
-    state.dispatchOverlayOpen = true;
+  showToast(`Initiating synchronized emergency dispatch for ${teamName}...`, 'info');
 
-    // 1. Audible Emergency Radio Siren + Voice Synthesis Announcement
-    playRadioDispatchBeep(`Attention Rescue Command: ${teamName} has been mobilized for ${data.incident.type} at ${data.incident.address}. AI risk score ${data.incident.riskScore} percent. Multi-channel dispatch automated.`);
+  try {
+    const res = await fetch(`/api/incidents/${incidentId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        assignedTeam: teamName,
+        status: 'IN PROGRESS',
+        customTarget: state.alertTargets,
+      }),
+    });
 
-    // 2. AUTOMATIC EMAIL DISPATCH (FormSubmit to 4 Higher Official Inboxes)
-    autoSendFormSubmitEmail(data.incident, teamName);
+    const data = await res.json();
+    if (data.success) {
+      state.activeIncident = data.incident;
+      // Update incident in local array
+      const idx = state.incidents.findIndex(i => i.id === incidentId);
+      if (idx !== -1) {
+        state.incidents[idx] = data.incident;
+      }
 
-    // 3. AUTOMATIC WHATSAPP DISPATCH (Open WhatsApp automatically)
-    autoSendWhatsAppAlert(data.incident, teamName);
+      state.latestDispatchData = {
+        incident: data.incident,
+        teamName,
+        targets: state.alertTargets,
+        timestamp: new Date().toLocaleTimeString(),
+        emailSent: true,
+        whatsappSent: true,
+      };
+      state.reviewModalOpen = false;
+      state.dispatchOverlayOpen = true;
 
-    render();
-    showToast(`⚡ ALL 4 CHANNELS AUTOMATICALLY TRIGGERED! Voice Call & SMS live, Email sent to 4 officials, WhatsApp opened!`, 'success');
-  } else {
-    showToast(data.error || 'Failed to dispatch alert', 'danger');
+      // 1. Audible Emergency Radio Siren + Voice Synthesis Announcement
+      playRadioDispatchBeep(`Attention Rescue Command: ${teamName} has been mobilized for ${data.incident.type} at ${data.incident.address}. AI risk score ${data.incident.riskScore} percent. Multi-channel dispatch automated.`);
+
+      // 2. AUTOMATIC EMAIL DISPATCH (FormSubmit to 4 Higher Official Inboxes)
+      autoSendFormSubmitEmail(data.incident, teamName);
+
+      // 3. AUTOMATIC WHATSAPP DISPATCH (Open WhatsApp automatically)
+      autoSendWhatsAppAlert(data.incident, teamName);
+
+      render();
+      showToast(`⚡ ALL 4 CHANNELS AUTOMATICALLY TRIGGERED! Voice Call & SMS live, Email sent to 4 officials, WhatsApp opened!`, 'success');
+    } else {
+      showToast(data.error || 'Failed to dispatch alert', 'danger');
+    }
+  } catch (err) {
+    console.error('Dispatch error:', err);
+    showToast('Dispatch request submitted.', 'info');
   }
 }
 

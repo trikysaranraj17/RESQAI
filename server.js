@@ -1001,7 +1001,7 @@ const server = http.createServer((req, res) => {
       }
 
       const existing = db.incidents[idx];
-      const teamAssignedNow = updates.assignedTeam && updates.assignedTeam !== existing.assignedTeam;
+      const teamAssignedNow = Boolean(updates.assignedTeam);
 
       const updated = {
         ...existing,

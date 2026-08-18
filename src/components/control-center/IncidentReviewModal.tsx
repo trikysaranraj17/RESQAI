@@ -173,11 +173,10 @@ export function IncidentReviewModal({
                   {/* Team Dispatch Dropdown */}
                   <div className="flex items-center gap-2">
                     <select
-                      value={selectedTeam}
+                      value={selectedTeam || incident.assignedTeam || (teams[0]?.name || 'Alpha Search & Rescue')}
                       onChange={(e) => setSelectedTeam(e.target.value)}
-                      className="glass-input px-3 py-2 rounded-xl text-xs"
+                      className="glass-input px-3 py-2 rounded-xl text-xs font-semibold text-white bg-slate-900 border border-cyan-500/40"
                     >
-                      <option value="">Select Response Team…</option>
                       {teams.map((t) => (
                         <option key={t.id} value={t.name}>
                           {t.name} ({t.specialty}) — {t.status}
@@ -186,15 +185,14 @@ export function IncidentReviewModal({
                     </select>
                     <button
                       onClick={() => {
-                        if (selectedTeam) {
-                          onAssignTeam(incident.id, selectedTeam);
-                          onUpdateStatus(incident.id, 'ASSIGNED');
-                        }
+                        const teamToDispatch = selectedTeam || incident.assignedTeam || (teams[0]?.name || 'Alpha Search & Rescue');
+                        onAssignTeam(incident.id, teamToDispatch);
+                        onUpdateStatus(incident.id, 'IN PROGRESS');
                       }}
-                      disabled={!selectedTeam}
-                      className="px-3.5 py-2 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold disabled:opacity-40"
+                      className="px-4 py-2 rounded-xl bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 text-white font-bold shadow-md shadow-red-600/30 transition-all cursor-pointer flex items-center gap-1.5"
                     >
-                      Dispatch Team
+                      <Send className="w-3.5 h-3.5" />
+                      <span>Dispatch Team</span>
                     </button>
                   </div>
 
