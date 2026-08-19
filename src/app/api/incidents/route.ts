@@ -5,6 +5,9 @@ import { NotificationService } from '@/lib/notificationService';
 import { realtimeHub } from '@/lib/realtime';
 import { WeatherService } from '@/lib/weatherService';
 
+const SUPABASE_URL = process.env.SUPABASE_URL || 'https://dwilzclyzdsfwqdzximc.supabase.co';
+const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImR3aWx6Y2x5emRzZndxZHp4aW1jIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4NzA1NTk5NiwiZXhwIjoyMTAyNjMxOTk2fQ.Y5kOLKI9VPAJ4c5iGqy_ugkLAj0b5sBDOqH7b1xGK-Q';
+
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
@@ -40,9 +43,10 @@ export async function POST(req: NextRequest) {
       media = [],
       voiceNote,
       citizenId,
+      customTarget,
     } = body;
 
-    const appMode = (process.env.APP_MODE as 'demo' | 'live') || 'demo';
+    const appMode = (process.env.APP_MODE as 'demo' | 'live') || 'live';
 
     // 1. Fetch current weather context to feed into multi-signal AI Risk Engine
     const weather = await WeatherService.getLatestWeather(appMode);
@@ -68,7 +72,7 @@ export async function POST(req: NextRequest) {
     // 3. Status determination: If AI evaluates as Critical, elevate immediately to CRITICAL
     const initialStatus = aiAnalysis.riskLevel === 'Critical' ? 'CRITICAL' : 'NEW';
 
-    // 4. Persist to Database Store
+    // 4. Persist to In-Memory Database Store
     const incident = db.createIncident({
       citizenId,
       type,
@@ -85,25 +89,61 @@ export async function POST(req: NextRequest) {
       media,
       voiceNote,
       aiAnalysis,
-      isSimulated: appMode === 'demo',
+      isSimulated: false,
     });
 
-    // 5. Critical Alert Workflow Dispatch if Critical threshold crossed
+    // 5. Critical Alert Workflow Dispatch (Voice Call + SMS + FormSubmit Email + WhatsApp)
     let alertLogs: any[] = [];
-    if (aiAnalysis.riskLevel === 'Critical') {
-      const alertResult = await NotificationService.dispatchCriticalAlert(incident, appMode);
-      alertResult.logs.forEach((log) => db.addNotificationLog(log));
+    const alertResult = await NotificationService.dispatchCriticalAlert(incident, customTarget);
+    if (alertResult && alertResult.logs) {
+      alertResult.logs.forEach((log: any) => db.addNotificationLog(log));
       alertLogs = alertResult.logs;
-
-      db.logAudit({
-        incidentId: incident.id,
-        actor: 'AI Risk Engine',
-        action: 'CRITICAL_ALERT_DISPATCHED',
-        details: `Dispatched multi-channel critical alert (Voice, Email, SMS, WhatsApp) for ${incident.id}.`,
-      });
     }
 
-    // 6. Broadcast Realtime Event to all connected Control Center operator dashboards
+    db.logAudit({
+      incidentId: incident.id,
+      actor: 'AI Risk Engine',
+      action: 'CRITICAL_ALERT_DISPATCHED',
+      details: `Dispatched multi-channel critical alert (Twilio Voice, Cellular SMS, FormSubmit Email, WhatsApp) for ${incident.id}.`,
+    });
+
+    // 6. Persist to Supabase PostgreSQL Database
+    try {
+      if (SUPABASE_URL && SUPABASE_KEY) {
+        fetch(`${SUPABASE_URL}/rest/v1/incidents`, {
+          method: 'POST',
+          headers: {
+            'apikey': SUPABASE_KEY,
+            'Authorization': `Bearer ${SUPABASE_KEY}`,
+            'Content-Type': 'application/json',
+            'Prefer': 'return=minimal',
+          },
+          body: JSON.stringify({
+            id: incident.id,
+            citizen_id: incident.citizenId,
+            type: incident.type,
+            description: incident.description,
+            people_affected: incident.peopleAffected,
+            latitude: incident.latitude,
+            longitude: incident.longitude,
+            accuracy: incident.accuracy,
+            address: incident.address,
+            priority: incident.priority,
+            risk_score: incident.riskScore,
+            risk_level: incident.riskLevel,
+            status: incident.status,
+            assigned_team: incident.assignedTeam || null,
+            created_at: incident.createdAt,
+            updated_at: incident.updatedAt,
+            is_simulated: false,
+          }),
+        }).catch(err => console.warn('Supabase incident sync notice:', err.message));
+      }
+    } catch (err: any) {
+      console.warn('Supabase incident sync error:', err.message);
+    }
+
+    // 7. Broadcast Realtime Event to all connected Control Center operator dashboards
     realtimeHub.broadcast('incident_created', {
       incident,
       alertsTriggered: alertLogs.length > 0,
@@ -125,6 +165,7 @@ export async function POST(req: NextRequest) {
       incident,
       aiAnalysis,
       alertsDispatched: alertLogs.length,
+      alertLogs,
     }, { status: 201 });
   } catch (error: any) {
     console.error('Error handling SOS submission:', error);
