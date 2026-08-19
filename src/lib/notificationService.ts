@@ -75,12 +75,15 @@ export class NotificationService {
       const voiceData = await voiceRes.json();
       if (voiceRes.ok && voiceData.sid) {
         callSid = voiceData.sid;
+        voiceLogStatus = 'DELIVERED';
       } else {
         voiceError = voiceData.message || `HTTP ${voiceRes.status}`;
+        callSid = `TWILIO-HTTP-${voiceRes.status}`;
         console.warn('Twilio Voice Call notice:', voiceError);
       }
     } catch (e: any) {
       voiceError = e.message;
+      callSid = 'TWILIO-CONNECTION-TIMEOUT';
       console.warn('Twilio Voice exception:', e.message);
     }
 
@@ -92,7 +95,9 @@ export class NotificationService {
       status: voiceLogStatus as any,
       providerReference: callSid,
       timestamp,
-      messagePreview: `Voice Call to ${targetPhone} announcing ${incident.type} at ${area}`,
+      messagePreview: voiceError
+        ? `[Twilio Voice]: ${voiceError}`
+        : `Voice Call to ${targetPhone} announcing ${incident.type} at ${area}`,
       retryCount: 0,
       isSimulated: false,
     });
@@ -102,6 +107,7 @@ export class NotificationService {
     // ----------------------------------------------------
     let smsSid = 'SMS-DISPATCHED';
     let smsLogStatus = 'DELIVERED';
+    let smsError = '';
     const smsBody = `🚨 [RESQ CRITICAL ALERT] ${incident.priority} (${incident.riskLevel}): ${incident.type} reported at ${area}. ${people} victim(s) in danger. AI Risk: ${risk}%. Mobilized Unit: ${assignedTeam}. Review command center immediately.`;
 
     try {
@@ -124,10 +130,15 @@ export class NotificationService {
       const smsData = await smsRes.json();
       if (smsRes.ok && smsData.sid) {
         smsSid = smsData.sid;
+        smsLogStatus = 'DELIVERED';
       } else {
-        console.warn('Twilio SMS notice:', smsData.message || `HTTP ${smsRes.status}`);
+        smsError = smsData.message || `HTTP ${smsRes.status}`;
+        smsSid = `TWILIO-HTTP-${smsRes.status}`;
+        console.warn('Twilio SMS notice:', smsError);
       }
     } catch (e: any) {
+      smsError = e.message;
+      smsSid = 'TWILIO-CONNECTION-TIMEOUT';
       console.warn('Twilio SMS exception:', e.message);
     }
 
@@ -139,7 +150,7 @@ export class NotificationService {
       status: smsLogStatus as any,
       providerReference: smsSid,
       timestamp,
-      messagePreview: smsBody,
+      messagePreview: smsError ? `[Twilio SMS]: ${smsError}` : smsBody,
       retryCount: 0,
       isSimulated: false,
     });
