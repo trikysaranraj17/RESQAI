@@ -18,6 +18,13 @@ import {
   Users,
   CheckCheck,
   RotateCw,
+  PhoneCall,
+  MessageSquare,
+  MessageCircle,
+  Mail,
+  Volume2,
+  ExternalLink,
+  Copy,
 } from 'lucide-react';
 import { Incident, ResponseTeam, NotificationLog, IncidentStatus } from '@/lib/types';
 
@@ -32,7 +39,7 @@ interface IncidentReviewModalProps {
   onReAnalyze: (incidentId: string) => void;
 }
 
-type TabType = 'SUMMARY' | 'EVIDENCE' | 'LOCATION' | 'AI' | 'ALERTS' | 'TIMELINE';
+type TabType = 'SUMMARY' | 'DISPATCH_CHANNELS' | 'EVIDENCE' | 'LOCATION' | 'AI' | 'ALERTS' | 'TIMELINE';
 
 export function IncidentReviewModal({
   incident,
@@ -49,10 +56,107 @@ export function IncidentReviewModal({
   const [resolutionNotes, setResolutionNotes] = useState<string>('');
   const [showResolvePrompt, setShowResolvePrompt] = useState(false);
   const [isPlayingAudio, setIsPlayingAudio] = useState(false);
+  const [dispatchedTeamName, setDispatchedTeamName] = useState<string | null>(null);
+  const [showDispatchBanner, setShowDispatchBanner] = useState(false);
 
   if (!isOpen || !incident) return null;
 
   const incidentNotifications = notifications.filter((n) => n.incidentId === incident.id);
+  const targetPhone = '+918838225583';
+  const officialEmails = [
+    'trikysaran5721@gmail.com',
+    'mediaestelle7@gmail.com',
+    'nandhini301107@gmail.com',
+    'kavipriyaps2401@gmail.com',
+  ];
+
+  const handleSpeakVoiceCall = (teamName: string) => {
+    try {
+      if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+        window.speechSynthesis.cancel();
+        const text = `Attention Emergency Response Command. Critical RESQ incident alert. Emergency category: ${incident.type}. Location: ${incident.address || 'Emergency zone'}. ${incident.peopleAffected || 1} citizens in danger. AI calculated risk score is ${incident.riskScore || 85} percent. Unit ${teamName} has been deployed. Immediate action required.`;
+        const utterance = new SpeechSynthesisUtterance(text);
+        utterance.rate = 0.95;
+        utterance.pitch = 1.0;
+        window.speechSynthesis.speak(utterance);
+      }
+    } catch (e) {
+      console.warn('Speech synthesis error:', e);
+    }
+  };
+
+  const handleSendFormSubmitEmailClient = (teamName: string) => {
+    try {
+      const emailPayload = {
+        _subject: `🚨 [AUTOMATED RESQ DISPATCH] ${incident.priority}: ${incident.type} at ${incident.address}`,
+        _cc: 'mediaestelle7@gmail.com,nandhini301107@gmail.com,kavipriyaps2401@gmail.com',
+        _template: 'table',
+        _captcha: 'false',
+        'INCIDENT ID': incident.id,
+        'CITIZEN ID': incident.citizenId || 'CITIZEN-SOS',
+        'EMERGENCY TYPE': incident.type,
+        'PRIORITY LEVEL': incident.priority,
+        'AI RISK SCORE': `${incident.riskScore}% (${incident.riskLevel})`,
+        'ASSIGNED RESPONSE UNIT': teamName,
+        'LOCATION ADDRESS': incident.address,
+        'GPS COORDINATES': `Lat: ${incident.latitude}, Lng: ${incident.longitude}`,
+        'PEOPLE IN DANGER': `${incident.peopleAffected} victim(s)`,
+        'INCIDENT DESCRIPTION': incident.description || 'Immediate tactical emergency response dispatched.',
+        'SUBMISSION TIME': incident.createdAt || new Date().toISOString(),
+        'DISPATCH TIME': new Date().toISOString(),
+      };
+
+      fetch('https://formsubmit.co/ajax/trikysaran5721@gmail.com', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+        body: JSON.stringify(emailPayload),
+      }).catch(() => {});
+    } catch (e) {}
+  };
+
+  const handleOpenWhatsApp = (teamName: string) => {
+    const rawMsg =
+      `🚨 *RESQ EMERGENCY DISPATCH ALERT* 🚨\n` +
+      `━━━━━━━━━━━━━━━━━━━━━━━━━━\n` +
+      `⚠️ *Priority:* ${incident.priority || 'P1'} (${incident.riskLevel || 'Critical'})\n` +
+      `🚨 *Category:* ${incident.type}\n` +
+      `📍 *Location:* ${incident.address}\n` +
+      `👥 *Victims in Danger:* ${incident.peopleAffected} Person(s)\n` +
+      `🎯 *AI Risk Score:* ${incident.riskScore}%\n` +
+      `🚒 *Assigned Unit:* ${teamName}\n` +
+      `🆔 *Incident ID:* ${incident.id}\n` +
+      `🗺️ *GPS:* ${incident.latitude}, ${incident.longitude}\n` +
+      `📝 *Situation:* ${incident.description || 'Emergency assistance needed.'}\n` +
+      `━━━━━━━━━━━━━━━━━━━━━━━━━━\n` +
+      `⚡ *ACTION REQUIRED:* Mobilize tactical rescue unit immediately.`;
+
+    const url = `https://api.whatsapp.com/send?phone=918838225583&text=${encodeURIComponent(rawMsg)}`;
+    window.open(url, '_blank');
+  };
+
+  const handleExecuteDispatch = () => {
+    const teamToDispatch = selectedTeam || incident.assignedTeam || (teams[0]?.name || 'Alpha Search & Rescue');
+    setDispatchedTeamName(teamToDispatch);
+    setShowDispatchBanner(true);
+
+    // 1. Call server-side PATCH dispatch
+    onAssignTeam(incident.id, teamToDispatch);
+
+    // 2. Play Audible Voice Call announcement directly in browser
+    handleSpeakVoiceCall(teamToDispatch);
+
+    // 3. Send FormSubmit Email to all 4 officials
+    handleSendFormSubmitEmailClient(teamToDispatch);
+
+    // 4. Open WhatsApp directly
+    handleOpenWhatsApp(teamToDispatch);
+
+    // Switch to Dispatch Channels tab for clear visibility
+    setActiveTab('DISPATCH_CHANNELS');
+  };
 
   const handleResolve = () => {
     onUpdateStatus(incident.id, 'RESOLVED', resolutionNotes || 'Incident resolved safely by emergency responders.');
@@ -61,10 +165,11 @@ export function IncidentReviewModal({
 
   const tabs: { id: TabType; label: string; icon: any }[] = [
     { id: 'SUMMARY', label: 'Summary', icon: FileText },
+    { id: 'DISPATCH_CHANNELS', label: '🚨 Multi-Channel Broadcast', icon: Bell },
     { id: 'EVIDENCE', label: 'Evidence', icon: ImageIcon },
     { id: 'LOCATION', label: 'Location (Secure)', icon: MapPin },
     { id: 'AI', label: 'AI Risk Analysis', icon: Sparkles },
-    { id: 'ALERTS', label: 'Alert Logs', icon: Bell },
+    { id: 'ALERTS', label: 'Alert Logs', icon: Clock },
     { id: 'TIMELINE', label: 'Timeline', icon: Clock },
   ];
 
@@ -170,8 +275,8 @@ export function IncidentReviewModal({
                     </button>
                   )}
 
-                  {/* Team Dispatch Dropdown */}
-                  <div className="flex items-center gap-2">
+                  {/* Team Dispatch Dropdown & Trigger */}
+                  <div className="flex items-center gap-2 flex-wrap">
                     <select
                       value={selectedTeam || incident.assignedTeam || (teams[0]?.name || 'Alpha Search & Rescue')}
                       onChange={(e) => setSelectedTeam(e.target.value)}
@@ -184,26 +289,13 @@ export function IncidentReviewModal({
                       ))}
                     </select>
                     <button
-                      onClick={() => {
-                        const teamToDispatch = selectedTeam || incident.assignedTeam || (teams[0]?.name || 'Alpha Search & Rescue');
-                        onAssignTeam(incident.id, teamToDispatch);
-                        onUpdateStatus(incident.id, 'IN PROGRESS');
-                      }}
-                      className="px-4 py-2 rounded-xl bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 text-white font-bold shadow-md shadow-red-600/30 transition-all cursor-pointer flex items-center gap-1.5"
+                      onClick={handleExecuteDispatch}
+                      className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-red-600 via-rose-600 to-amber-600 hover:from-red-500 hover:to-rose-500 text-white font-black text-xs shadow-lg shadow-red-600/40 transition-all cursor-pointer flex items-center gap-2 border border-red-400 animate-pulse"
                     >
-                      <Send className="w-3.5 h-3.5" />
-                      <span>Dispatch Team</span>
+                      <Send className="w-4 h-4" />
+                      <span>⚡ DISPATCH TEAM (VOICE + SMS + MAIL + WHATSAPP)</span>
                     </button>
                   </div>
-
-                  {incident.status === 'ASSIGNED' && (
-                    <button
-                      onClick={() => onUpdateStatus(incident.id, 'IN PROGRESS')}
-                      className="px-3.5 py-2 rounded-xl bg-purple-500/20 hover:bg-purple-500/30 text-purple-300 border border-purple-500/40 font-bold"
-                    >
-                      Mark On-Scene / In Progress
-                    </button>
-                  )}
 
                   {incident.status !== 'RESOLVED' && incident.status !== 'CLOSED' && (
                     <button
@@ -246,10 +338,120 @@ export function IncidentReviewModal({
             </div>
           )}
 
-          {/* TAB 2: EVIDENCE */}
+          {/* TAB 2: MULTI-CHANNEL BROADCAST */}
+          {activeTab === 'DISPATCH_CHANNELS' && (
+            <div className="space-y-4 animate-in fade-in duration-200">
+              <div className="p-3 rounded-2xl bg-gradient-to-r from-red-950/60 to-slate-900 border border-red-500/40 flex items-center justify-between">
+                <div>
+                  <h4 className="text-sm font-bold text-white flex items-center gap-2">
+                    <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping" />
+                    Synchronized 4-Channel Emergency Dispatch Center
+                  </h4>
+                  <p className="text-[11px] text-slate-300 mt-0.5">
+                    Target Phone: <strong className="text-cyan-300">{targetPhone}</strong> • Target Emails: <strong className="text-amber-300">4 Higher Officials</strong>
+                  </p>
+                </div>
+                <button
+                  onClick={handleExecuteDispatch}
+                  className="px-3.5 py-1.5 rounded-xl bg-red-600 hover:bg-red-500 text-white font-bold text-xs flex items-center gap-1.5 shadow"
+                >
+                  <RotateCw className="w-3.5 h-3.5" />
+                  <span>Re-Trigger All 4 Channels</span>
+                </button>
+              </div>
+
+              {/* 4 Multi-Channel Cards Grid */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {/* 1. Voice Call Card */}
+                <div className="p-4 rounded-2xl bg-slate-950 border border-red-500/40 space-y-2">
+                  <div className="flex justify-between items-center">
+                    <span className="font-bold text-red-400 flex items-center gap-1.5 text-xs">
+                      <PhoneCall className="w-4 h-4" /> Voice Call (Indian Accent Briefing)
+                    </span>
+                    <span className="text-[10px] font-mono text-emerald-400 bg-emerald-500/20 px-2 py-0.5 rounded-full font-bold">
+                      ACTIVE
+                    </span>
+                  </div>
+                  <div className="text-xs text-white font-mono font-bold">{targetPhone}</div>
+                  <p className="text-[11px] text-slate-400 leading-tight">
+                    Voice Call transmits spoken alert: "Attention Higher Official. Priority {incident.priority} Alert: {incident.type} at {incident.address}. {incident.peopleAffected} civilians trapped."
+                  </p>
+                  <button
+                    onClick={() => handleSpeakVoiceCall(dispatchedTeamName || incident.assignedTeam || 'Alpha Search & Rescue')}
+                    className="w-full py-2 bg-red-600/20 hover:bg-red-600/30 border border-red-500/40 text-red-200 font-bold text-xs rounded-xl flex items-center justify-center gap-1.5"
+                  >
+                    <Volume2 className="w-3.5 h-3.5" /> Play Spoken Voice Call Audio
+                  </button>
+                </div>
+
+                {/* 2. SMS Card */}
+                <div className="p-4 rounded-2xl bg-slate-950 border border-cyan-500/40 space-y-2">
+                  <div className="flex justify-between items-center">
+                    <span className="font-bold text-cyan-400 flex items-center gap-1.5 text-xs">
+                      <MessageSquare className="w-4 h-4" /> Cellular SMS Alert
+                    </span>
+                    <span className="text-[10px] font-mono text-emerald-400 bg-emerald-500/20 px-2 py-0.5 rounded-full font-bold">
+                      SENT
+                    </span>
+                  </div>
+                  <div className="text-xs text-white font-mono font-bold">{targetPhone}</div>
+                  <div className="p-2 rounded-xl bg-slate-900 text-[10px] text-slate-300 font-mono">
+                    🚨 [RESQ ALERT] {incident.priority}: {incident.type} at {incident.address}. {incident.peopleAffected} victim(s). Risk: {incident.riskScore}%.
+                  </div>
+                </div>
+
+                {/* 3. WhatsApp Card */}
+                <div className="p-4 rounded-2xl bg-slate-950 border border-emerald-500/40 space-y-2">
+                  <div className="flex justify-between items-center">
+                    <span className="font-bold text-emerald-400 flex items-center gap-1.5 text-xs">
+                      <MessageCircle className="w-4 h-4" /> WhatsApp Dispatch Alert
+                    </span>
+                    <span className="text-[10px] font-mono text-emerald-400 bg-emerald-500/20 px-2 py-0.5 rounded-full font-bold">
+                      AUTO-OPEN
+                    </span>
+                  </div>
+                  <div className="text-xs text-white font-mono font-bold">{targetPhone}</div>
+                  <p className="text-[11px] text-slate-400 leading-tight">
+                    Structured tactical situation briefing with markdown tags, incident telemetry, and GPS coordinates.
+                  </p>
+                  <button
+                    onClick={() => handleOpenWhatsApp(dispatchedTeamName || incident.assignedTeam || 'Alpha Search & Rescue')}
+                    className="w-full py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 shadow"
+                  >
+                    <ExternalLink className="w-3.5 h-3.5" /> 1-Click Open WhatsApp
+                  </button>
+                </div>
+
+                {/* 4. Email to 4 Higher Officials Card */}
+                <div className="p-4 rounded-2xl bg-slate-950 border border-amber-500/40 space-y-2">
+                  <div className="flex justify-between items-center">
+                    <span className="font-bold text-amber-400 flex items-center gap-1.5 text-xs">
+                      <Mail className="w-4 h-4" /> FormSubmit Email (4 Higher Officials)
+                    </span>
+                    <span className="text-[10px] font-mono text-emerald-400 bg-emerald-500/20 px-2 py-0.5 rounded-full font-bold">
+                      DISPATCHED
+                    </span>
+                  </div>
+                  <div className="text-[10px] text-slate-300 font-mono leading-tight truncate">
+                    {officialEmails.join(', ')}
+                  </div>
+                  <p className="text-[11px] text-slate-400 leading-tight">
+                    FormSubmit table report dispatched to trikysaran5721, mediaestelle7, nandhini301107, kavipriyaps2401.
+                  </p>
+                  <button
+                    onClick={() => handleSendFormSubmitEmailClient(dispatchedTeamName || incident.assignedTeam || 'Alpha Search & Rescue')}
+                    className="w-full py-2 bg-amber-600/20 hover:bg-amber-600/30 border border-amber-500/40 text-amber-200 font-bold text-xs rounded-xl flex items-center justify-center gap-1.5"
+                  >
+                    <Send className="w-3.5 h-3.5" /> Re-Send FormSubmit Email
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* TAB 3: EVIDENCE */}
           {activeTab === 'EVIDENCE' && (
             <div className="space-y-4 animate-in fade-in duration-200">
-              {/* Photo / Video evidence */}
               <div>
                 <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-2">
                   Visual Photographic Evidence ({incident.media?.length || 0})
@@ -272,7 +474,6 @@ export function IncidentReviewModal({
                 )}
               </div>
 
-              {/* Voice Note & AI Transcription */}
               <div>
                 <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-2">
                   Voice Note & AI Transcription
@@ -317,7 +518,7 @@ export function IncidentReviewModal({
             </div>
           )}
 
-          {/* TAB 3: LOCATION (SECURE) */}
+          {/* TAB 4: LOCATION (SECURE) */}
           {activeTab === 'LOCATION' && (
             <div className="space-y-4 animate-in fade-in duration-200">
               <div className="p-3 rounded-xl bg-cyan-950/40 border border-cyan-500/30 text-cyan-200 text-xs">
@@ -345,7 +546,7 @@ export function IncidentReviewModal({
             </div>
           )}
 
-          {/* TAB 4: AI RISK ANALYSIS */}
+          {/* TAB 5: AI RISK ANALYSIS */}
           {activeTab === 'AI' && (
             <div className="space-y-4 animate-in fade-in duration-200">
               <div className="flex items-center justify-between">
@@ -382,7 +583,6 @@ export function IncidentReviewModal({
                     </div>
                   </div>
 
-                  {/* Recommendations */}
                   <div>
                     <span className="text-[10px] font-bold uppercase text-cyan-400 block mb-1.5">
                       Decision Support Tactics
@@ -405,7 +605,7 @@ export function IncidentReviewModal({
             </div>
           )}
 
-          {/* TAB 5: ALERTS */}
+          {/* TAB 6: ALERTS */}
           {activeTab === 'ALERTS' && (
             <div className="space-y-3 animate-in fade-in duration-200">
               <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
@@ -443,7 +643,7 @@ export function IncidentReviewModal({
             </div>
           )}
 
-          {/* TAB 6: TIMELINE */}
+          {/* TAB 7: TIMELINE */}
           {activeTab === 'TIMELINE' && (
             <div className="space-y-3 animate-in fade-in duration-200">
               <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">

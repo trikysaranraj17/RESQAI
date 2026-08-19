@@ -180,7 +180,7 @@ export default function ControlCenterDashboard() {
       const res = await fetch(`/api/incidents/${incidentId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ assignedTeam: teamName, status: 'ASSIGNED' }),
+        body: JSON.stringify({ assignedTeam: teamName, status: 'IN PROGRESS' }),
       });
       const data = await res.json();
       if (data.success) {
@@ -188,10 +188,11 @@ export default function ControlCenterDashboard() {
         if (reviewIncident && reviewIncident.id === incidentId) {
           setReviewIncident(data.incident);
         }
-        // Refresh teams
-        const tRes = await fetch('/api/teams');
-        const tData = await tRes.json();
+        // Refresh teams and notification alert logs
+        const [tRes, nRes] = await Promise.all([fetch('/api/teams'), fetch('/api/notifications')]);
+        const [tData, nData] = await Promise.all([tRes.json(), nRes.json()]);
         if (tData.success) setTeams(tData.teams);
+        if (nData.success) setNotifications(nData.logs);
       }
     } catch (err) {
       console.error('Error assigning team:', err);

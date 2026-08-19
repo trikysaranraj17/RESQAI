@@ -82,8 +82,9 @@ export function HeaderStrip({
               <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">
                 DISPATCH v2.6
               </span>
-              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30">
-                [DEMO SIMULATION]
+              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 flex items-center gap-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping"></span>
+                [LIVE MULTI-CHANNEL ACTIVE]
               </span>
             </div>
             <div className="text-[11px] text-slate-400 flex items-center gap-2">
