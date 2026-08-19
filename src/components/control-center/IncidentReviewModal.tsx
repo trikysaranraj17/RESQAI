@@ -155,6 +155,21 @@ export function IncidentReviewModal({
     } catch (e) {}
   };
 
+  const handleSendNtfyPushClient = (teamName: string) => {
+    try {
+      const ntfyBody = `🚨 [RESQ ALERT] ${incident.priority} (${incident.riskLevel})\nType: ${incident.type}\nLocation: ${incident.address}\nVictims: ${incident.peopleAffected}\nRisk Score: ${incident.riskScore}%\nUnit Assigned: ${teamName}`;
+      fetch('https://ntfy.sh/resq-saran-alerts', {
+        method: 'POST',
+        headers: {
+          'Title': '🚨 RESQ Emergency Dispatch',
+          'Priority': '5',
+          'Tags': 'rotating_light,sos,fire_engine',
+        },
+        body: ntfyBody,
+      }).catch(() => {});
+    } catch (e) {}
+  };
+
   const handleExecuteDispatch = () => {
     const teamToDispatch = selectedTeam || incident.assignedTeam || (teams[0]?.name || 'Alpha Search & Rescue');
     setDispatchedTeamName(teamToDispatch);
@@ -170,10 +185,13 @@ export function IncidentReviewModal({
     // 3. Send FormSubmit Email to all 4 officials
     handleSendFormSubmitEmailClient(teamToDispatch);
 
-    // 4. Call server-side PATCH dispatch
+    // 4. Send ntfy.sh mobile push notification (siren sound)
+    handleSendNtfyPushClient(teamToDispatch);
+
+    // 5. Call server-side PATCH dispatch
     onAssignTeam(incident.id, teamToDispatch);
 
-    // 5. Switch to Dispatch Channels tab for clear visibility
+    // 6. Switch to Dispatch Channels tab for clear visibility
     setActiveTab('DISPATCH_CHANNELS');
   };
 
@@ -545,6 +563,38 @@ export function IncidentReviewModal({
                   >
                     <Send className="w-3.5 h-3.5" /> Re-Send FormSubmit Email
                   </button>
+                </div>
+
+                {/* 5. ntfy.sh Mobile Siren Push Notification Card */}
+                <div className="p-4 rounded-2xl bg-slate-950 border border-purple-500/40 space-y-2 sm:col-span-2">
+                  <div className="flex justify-between items-center">
+                    <span className="font-bold text-purple-400 flex items-center gap-1.5 text-xs">
+                      <Bell className="w-4 h-4 text-purple-400 animate-bounce" /> ntfy.sh Instant Mobile Push (100% Free & Unlimited)
+                    </span>
+                    <span className="text-[10px] font-mono text-emerald-400 bg-emerald-500/20 px-2 py-0.5 rounded-full font-bold">
+                      ACTIVE & DISPATCHED
+                    </span>
+                  </div>
+                  <div className="text-xs text-white font-mono font-bold">Topic: resq-saran-alerts</div>
+                  <p className="text-[11px] text-slate-300 leading-relaxed">
+                    ntfy.sh is a free pub-sub notification service. Open <strong className="text-cyan-300">ntfy.sh/resq-saran-alerts</strong> on your phone (or download the free app and subscribe to "resq-saran-alerts") to receive **instant, high-priority emergency banners & ringtones** when dispatching teams!
+                  </p>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => handleSendNtfyPushClient(dispatchedTeamName || incident.assignedTeam || 'Alpha Search & Rescue')}
+                      className="flex-1 py-2 bg-purple-600/20 hover:bg-purple-600/30 border border-purple-500/40 text-purple-200 font-bold text-xs rounded-xl flex items-center justify-center gap-1.5"
+                    >
+                      <RotateCw className="w-3.5 h-3.5" /> Re-Trigger Push Siren Alert
+                    </button>
+                    <a
+                      href="https://ntfy.sh/resq-saran-alerts"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="px-4 py-2 bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 shadow"
+                    >
+                      <ExternalLink className="w-3.5 h-3.5" /> Open / Subscribe on Phone
+                    </a>
+                  </div>
                 </div>
               </div>
             </div>

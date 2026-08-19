@@ -1671,6 +1671,11 @@ async function assignTeamAndTriggerDispatch(incidentId, explicitTeam = null) {
     playRadioDispatchBeep(`Attention Rescue Command: ${teamName} has been mobilized for ${targetIncident.type} at ${targetIncident.address}. AI risk score ${targetIncident.riskScore} percent. Multi-channel dispatch automated.`);
   }
 
+  // 2.5 SYNCHRONOUS NTFY.SH PUSH SIREN ALERT
+  if (targetIncident) {
+    autoSendNtfyPush(targetIncident, teamName);
+  }
+
   try {
     const res = await fetch(`/api/incidents/${incidentId}`, {
       method: 'PATCH',
@@ -1809,6 +1814,22 @@ function autoSendWhatsAppAlert(inc, teamName) {
   } catch (e) {
     navigator.clipboard.writeText(rawMsg).catch(() => {});
   }
+}
+
+// Background Automated ntfy.sh Mobile Push Trigger
+function autoSendNtfyPush(inc, teamName) {
+  try {
+    const ntfyBody = `🚨 [RESQ ALERT] ${inc.priority} (${inc.riskLevel || 'Critical'})\nType: ${inc.type}\nLocation: ${inc.address}\nVictims: ${inc.peopleAffected}\nRisk Score: ${inc.riskScore}%\nUnit Assigned: ${teamName}`;
+    fetch('https://ntfy.sh/resq-saran-alerts', {
+      method: 'POST',
+      headers: {
+        'Title': '🚨 RESQ Emergency Dispatch',
+        'Priority': '5',
+        'Tags': 'rotating_light,sos,fire_engine'
+      },
+      body: ntfyBody
+    }).catch(() => {});
+  } catch (e) {}
 }
 
 function renderDispatchAlertOverlay() {
@@ -1953,6 +1974,33 @@ function renderDispatchAlertOverlay() {
             >
               <i data-lucide="send" class="w-3.5 h-3.5"></i> Re-Send Email to All 4 Inboxes
             </button>
+          </div>
+
+          <!-- ntfy.sh Mobile Siren Push Card -->
+          <div class="bg-slate-950 p-4 rounded-2xl border border-purple-500/40 space-y-2.5 sm:col-span-2">
+            <div class="flex justify-between items-center">
+              <span class="text-xs font-bold text-purple-400 flex items-center gap-1.5">
+                <i data-lucide="bell" class="w-4 h-4 text-purple-400 animate-bounce"></i> ntfy.sh Mobile Siren Push
+              </span>
+              <span class="text-[10px] font-mono text-emerald-400 bg-emerald-500/20 px-2 py-0.5 rounded-full font-bold">ACTIVE</span>
+            </div>
+            <div class="text-xs text-white font-mono font-bold">Topic: resq-saran-alerts</div>
+            <p class="text-[11px] text-slate-400 leading-tight">Instant high-priority push banner with custom siren sound delivered to ntfy.sh/resq-saran-alerts.</p>
+            <div class="flex gap-2">
+              <button
+                onclick="autoSendNtfyPush(state.latestDispatchData.incident, state.latestDispatchData.teamName); showToast('Re-triggered ntfy.sh mobile siren!', 'success');"
+                class="flex-1 py-2 bg-purple-600/20 hover:bg-purple-600/30 border border-purple-500/40 text-purple-200 font-bold text-xs rounded-xl flex items-center justify-center gap-1.5"
+              >
+                <i data-lucide="bell" class="w-3.5 h-3.5"></i> Re-Trigger Push Siren Alert
+              </button>
+              <a
+                href="https://ntfy.sh/resq-saran-alerts"
+                target="_blank"
+                class="px-3 py-2 bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 shadow"
+              >
+                <i data-lucide="external-link" class="w-3.5 h-3.5"></i> Open / Subscribe
+              </a>
+            </div>
           </div>
         </div>
 

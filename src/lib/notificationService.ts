@@ -232,6 +232,24 @@ export class NotificationService {
     });
 
     // ----------------------------------------------------
+    // 4.5 INSTANT PUSH NOTIFICATION (ntfy.sh - 100% Free & Unlimited)
+    // ----------------------------------------------------
+    try {
+      const ntfyBody = `🚨 [RESQ ALERT] ${incident.priority} (${incident.riskLevel})\nType: ${incident.type}\nLocation: ${area}\nVictims: ${people}\nRisk Score: ${risk}%\nUnit Assigned: ${assignedTeam}`;
+      fetch('https://ntfy.sh/resq-saran-alerts', {
+        method: 'POST',
+        headers: {
+          'Title': `🚨 RESQ Emergency Dispatch`,
+          'Priority': '5',
+          'Tags': 'rotating_light,sos,fire_engine',
+        },
+        body: ntfyBody,
+      }).catch(() => {});
+    } catch (e: any) {
+      console.warn('ntfy.sh fail:', e.message);
+    }
+
+    // ----------------------------------------------------
     // 5. SUPABASE DB PERSISTENCE SYNC
     // ----------------------------------------------------
     try {
