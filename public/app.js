@@ -313,6 +313,56 @@ function playRadioDispatchBeep(textAnnouncement = '') {
   } catch (e) {}
 }
 
+// Local synthesized Siren Alarm
+function playLoudSirenAlarm() {
+  try {
+    const AudioContext = window.AudioContext || window.webkitAudioContext;
+    if (!AudioContext) return;
+    const ctx = new AudioContext();
+
+    const osc1 = ctx.createOscillator();
+    const osc2 = ctx.createOscillator();
+    const gainNode = ctx.createGain();
+
+    osc1.type = 'sawtooth';
+    osc2.type = 'sine';
+
+    osc1.frequency.setValueAtTime(500, ctx.currentTime);
+    osc2.frequency.setValueAtTime(800, ctx.currentTime);
+
+    const modulator = ctx.createOscillator();
+    const modulatorGain = ctx.createGain();
+    modulator.frequency.value = 1.8;
+    modulatorGain.gain.value = 250;
+
+    modulator.connect(modulatorGain);
+    modulatorGain.connect(osc1.frequency);
+    modulatorGain.connect(osc2.frequency);
+
+    osc1.connect(gainNode);
+    osc2.connect(gainNode);
+    gainNode.connect(ctx.destination);
+
+    gainNode.gain.setValueAtTime(0.7, ctx.currentTime);
+
+    modulator.start();
+    osc1.start();
+    osc2.start();
+
+    setTimeout(() => {
+      try {
+        gainNode.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.5);
+        setTimeout(() => {
+          osc1.stop();
+          osc2.stop();
+          modulator.stop();
+          ctx.close();
+        }, 600);
+      } catch (e) {}
+    }, 4000);
+  } catch (e) {}
+}
+
 // ==========================================
 // 6. ROUTING & RENDERING
 // ==========================================
@@ -1668,6 +1718,7 @@ async function assignTeamAndTriggerDispatch(incidentId, explicitTeam = null) {
 
   // 2. SYNCHRONOUS VOICE DISPATCH AUDIO
   if (targetIncident) {
+    playLoudSirenAlarm();
     playRadioDispatchBeep(`Attention Rescue Command: ${teamName} has been mobilized for ${targetIncident.type} at ${targetIncident.address}. AI risk score ${targetIncident.riskScore} percent. Multi-channel dispatch automated.`);
   }
 
@@ -1987,12 +2038,18 @@ function renderDispatchAlertOverlay() {
             </div>
             <div class="text-xs text-white font-mono font-bold">Topic: resq-saran-alerts</div>
             <p class="text-[11px] text-slate-400 leading-tight">Instant high-priority push banner with custom siren sound delivered to ntfy.sh/resq-saran-alerts.</p>
-            <div class="flex gap-2">
+            <div class="flex flex-wrap gap-2">
               <button
                 onclick="autoSendNtfyPush(state.latestDispatchData.incident, state.latestDispatchData.teamName); showToast('Re-triggered ntfy.sh mobile siren!', 'success');"
                 class="flex-1 py-2 bg-purple-600/20 hover:bg-purple-600/30 border border-purple-500/40 text-purple-200 font-bold text-xs rounded-xl flex items-center justify-center gap-1.5"
               >
                 <i data-lucide="bell" class="w-3.5 h-3.5"></i> Re-Trigger Push Siren Alert
+              </button>
+              <button
+                onclick="playLoudSirenAlarm(); showToast('Playing emergency siren on device!', 'info');"
+                class="py-2 px-3.5 bg-red-600 hover:bg-red-500 text-white font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 shadow"
+              >
+                <i data-lucide="volume-2" class="w-3.5 h-3.5 animate-pulse"></i> Play Siren On Device
               </button>
               <a
                 href="https://ntfy.sh/resq-saran-alerts"

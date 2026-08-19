@@ -171,10 +171,62 @@ export function IncidentReviewModal({
     } catch (e) {}
   };
 
+  const playLoudSirenAlarm = () => {
+    try {
+      const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
+      if (!AudioContext) return;
+      const ctx = new AudioContext();
+
+      const osc1 = ctx.createOscillator();
+      const osc2 = ctx.createOscillator();
+      const gainNode = ctx.createGain();
+
+      osc1.type = 'sawtooth';
+      osc2.type = 'sine';
+
+      osc1.frequency.setValueAtTime(500, ctx.currentTime);
+      osc2.frequency.setValueAtTime(800, ctx.currentTime);
+
+      const modulator = ctx.createOscillator();
+      const modulatorGain = ctx.createGain();
+      modulator.frequency.value = 1.8;
+      modulatorGain.gain.value = 250;
+
+      modulator.connect(modulatorGain);
+      modulatorGain.connect(osc1.frequency);
+      modulatorGain.connect(osc2.frequency);
+
+      osc1.connect(gainNode);
+      osc2.connect(gainNode);
+      gainNode.connect(ctx.destination);
+
+      gainNode.gain.setValueAtTime(0.7, ctx.currentTime);
+
+      modulator.start();
+      osc1.start();
+      osc2.start();
+
+      setTimeout(() => {
+        try {
+          gainNode.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.5);
+          setTimeout(() => {
+            osc1.stop();
+            osc2.stop();
+            modulator.stop();
+            ctx.close();
+          }, 600);
+        } catch (e) {}
+      }, 4000);
+    } catch (e) {}
+  };
+
   const handleExecuteDispatch = () => {
     const teamToDispatch = selectedTeam || incident.assignedTeam || (teams[0]?.name || 'Alpha Search & Rescue');
     setDispatchedTeamName(teamToDispatch);
     setShowDispatchBanner(true);
+
+    // 0. Play loud Emergency Siren Alarm sound directly from browser
+    playLoudSirenAlarm();
 
     // 1. Open WhatsApp synchronously FIRST to bypass popup blocker
     handleOpenWhatsApp(teamToDispatch);
@@ -580,12 +632,18 @@ export function IncidentReviewModal({
                   <p className="text-[11px] text-slate-300 leading-relaxed">
                     ntfy.sh is a free pub-sub notification service. Open <strong className="text-cyan-300">ntfy.sh/resq-saran-alerts</strong> on your phone (or download the free app and subscribe to "resq-saran-alerts") to receive **instant, high-priority emergency banners & ringtones** when dispatching teams!
                   </p>
-                  <div className="flex gap-2">
+                  <div className="flex flex-wrap gap-2">
                     <button
                       onClick={() => handleSendNtfyPushClient(dispatchedTeamName || incident.assignedTeam || 'Alpha Search & Rescue')}
                       className="flex-1 py-2 bg-purple-600/20 hover:bg-purple-600/30 border border-purple-500/40 text-purple-200 font-bold text-xs rounded-xl flex items-center justify-center gap-1.5"
                     >
                       <RotateCw className="w-3.5 h-3.5" /> Re-Trigger Push Siren Alert
+                    </button>
+                    <button
+                      onClick={playLoudSirenAlarm}
+                      className="py-2 px-3.5 bg-red-600 hover:bg-red-500 text-white font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 shadow"
+                    >
+                      <Volume2 className="w-3.5 h-3.5 animate-pulse" /> Play Siren On Device
                     </button>
                     <a
                       href="https://ntfy.sh/resq-saran-alerts"
