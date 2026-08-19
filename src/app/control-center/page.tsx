@@ -49,6 +49,91 @@ export default function ControlCenterDashboard() {
     riskScore: number;
   } | null>(null);
 
+  const [isAudioUnlocked, setIsAudioUnlocked] = useState(false);
+
+  const unlockAudioContext = () => {
+    try {
+      const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
+      if (AudioContext) {
+        const ctx = new AudioContext();
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        gain.gain.setValueAtTime(0.01, ctx.currentTime);
+        osc.start();
+        osc.stop(ctx.currentTime + 0.05);
+      }
+      setIsAudioUnlocked(true);
+      if ('speechSynthesis' in window) {
+        const dummy = new SpeechSynthesisUtterance('');
+        window.speechSynthesis.speak(dummy);
+      }
+    } catch (e) {}
+  };
+
+  const playLoudSirenAndVoice = useCallback((inc: Incident) => {
+    try {
+      const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
+      if (!AudioContext) return;
+      const ctx = new AudioContext();
+
+      const osc1 = ctx.createOscillator();
+      const osc2 = ctx.createOscillator();
+      const gainNode = ctx.createGain();
+
+      osc1.type = 'sawtooth';
+      osc2.type = 'sine';
+
+      osc1.frequency.setValueAtTime(500, ctx.currentTime);
+      osc2.frequency.setValueAtTime(800, ctx.currentTime);
+
+      const modulator = ctx.createOscillator();
+      const modulatorGain = ctx.createGain();
+      modulator.frequency.value = 1.8;
+      modulatorGain.gain.value = 250;
+
+      modulator.connect(modulatorGain);
+      modulatorGain.connect(osc1.frequency);
+      modulatorGain.connect(osc2.frequency);
+
+      osc1.connect(gainNode);
+      osc2.connect(gainNode);
+      gainNode.connect(ctx.destination);
+
+      gainNode.gain.setValueAtTime(0.85, ctx.currentTime);
+
+      modulator.start();
+      osc1.start();
+      osc2.start();
+
+      setTimeout(() => {
+        try {
+          gainNode.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.5);
+          setTimeout(() => {
+            osc1.stop();
+            osc2.stop();
+            modulator.stop();
+            ctx.close();
+          }, 600);
+        } catch (e) {}
+      }, 4500);
+
+      if ('speechSynthesis' in window) {
+        setTimeout(() => {
+          window.speechSynthesis.cancel();
+          const text = `Attention response team. Emergency dispatch activated for ${inc.type} at ${inc.address || 'Emergency zone'}. AI risk score is ${inc.riskScore || 85} percent. Mobilize unit immediately.`;
+          const utterance = new SpeechSynthesisUtterance(text);
+          utterance.rate = 0.95;
+          utterance.pitch = 1.0;
+          window.speechSynthesis.speak(utterance);
+        }, 800);
+      }
+    } catch (e) {
+      console.warn('Realtime sound dispatch error:', e);
+    }
+  }, []);
+
   // Fetch initial data
   const loadDashboardData = useCallback(async () => {
     try {
@@ -130,7 +215,13 @@ export default function ControlCenterDashboard() {
             return;
           }
           const updated: Incident = payload.incident;
-          setIncidents((prev) => prev.map((i) => (i.id === updated.id ? updated : i)));
+          setIncidents((prev) => {
+            const existing = prev.find((i) => i.id === updated.id);
+            if (existing && existing.status !== 'IN PROGRESS' && updated.status === 'IN PROGRESS') {
+              playLoudSirenAndVoice(updated);
+            }
+            return prev.map((i) => (i.id === updated.id ? updated : i));
+          });
           if (reviewIncident && reviewIncident.id === updated.id) {
             setReviewIncident(updated);
           }
@@ -153,7 +244,7 @@ export default function ControlCenterDashboard() {
         eventSource.close();
       }
     };
-  }, [loadDashboardData, reviewIncident]);
+  }, [loadDashboardData, reviewIncident, playLoudSirenAndVoice]);
 
   // Actions
   const handleUpdateStatus = async (incidentId: string, status: IncidentStatus, notes?: string) => {
@@ -242,6 +333,17 @@ export default function ControlCenterDashboard() {
 
       {/* Main Operational Container */}
       <main className="flex-1 p-3 sm:p-4 space-y-3.5 max-w-[1920px] mx-auto w-full flex flex-col">
+        {/* Browser Audio Context Unlock Banner */}
+        {!isAudioUnlocked && (
+          <button
+            onClick={unlockAudioContext}
+            className="w-full p-4 rounded-2xl bg-gradient-to-r from-cyan-600 via-blue-600 to-purple-600 border border-cyan-400 text-white flex items-center justify-center gap-2.5 font-bold text-xs uppercase tracking-wider shadow-lg hover:brightness-110 active:scale-[0.99] transition-all"
+          >
+            <Radio className="w-4 h-4 animate-pulse text-cyan-300" />
+            <span>🔊 Click to Activate Real-Time Mobile Dispatch Voice & Sirens</span>
+          </button>
+        )}
+
         {/* Flashy "🚨 New Citizen Emergency" Alert Banner */}
         {newEmergencyAlert && (
           <div className="p-3.5 rounded-2xl bg-gradient-to-r from-red-600 via-red-700 to-amber-600 border border-red-400 text-white flex items-center justify-between shadow-2xl shadow-red-600/40 animate-in slide-in-from-top-4 duration-300">
