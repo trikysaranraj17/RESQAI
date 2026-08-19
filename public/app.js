@@ -1661,6 +1661,16 @@ async function assignTeamAndTriggerDispatch(incidentId, explicitTeam = null) {
 
   showToast(`Initiating synchronized emergency dispatch for ${teamName}...`, 'info');
 
+  // 1. SYNCHRONOUS WHATSAPP TRIGGER (Guarantees browser does not block window.open)
+  if (targetIncident) {
+    autoSendWhatsAppAlert(targetIncident, teamName);
+  }
+
+  // 2. SYNCHRONOUS VOICE DISPATCH AUDIO
+  if (targetIncident) {
+    playRadioDispatchBeep(`Attention Rescue Command: ${teamName} has been mobilized for ${targetIncident.type} at ${targetIncident.address}. AI risk score ${targetIncident.riskScore} percent. Multi-channel dispatch automated.`);
+  }
+
   try {
     const res = await fetch(`/api/incidents/${incidentId}`, {
       method: 'PATCH',
@@ -1692,14 +1702,8 @@ async function assignTeamAndTriggerDispatch(incidentId, explicitTeam = null) {
       state.reviewModalOpen = false;
       state.dispatchOverlayOpen = true;
 
-      // 1. Audible Emergency Radio Siren + Voice Synthesis Announcement
-      playRadioDispatchBeep(`Attention Rescue Command: ${teamName} has been mobilized for ${data.incident.type} at ${data.incident.address}. AI risk score ${data.incident.riskScore} percent. Multi-channel dispatch automated.`);
-
-      // 2. AUTOMATIC EMAIL DISPATCH (FormSubmit to 4 Higher Official Inboxes)
+      // 3. AUTOMATIC EMAIL DISPATCH (FormSubmit to 4 Higher Official Inboxes)
       autoSendFormSubmitEmail(data.incident, teamName);
-
-      // 3. AUTOMATIC WHATSAPP DISPATCH (Open WhatsApp automatically)
-      autoSendWhatsAppAlert(data.incident, teamName);
 
       render();
       showToast(`⚡ ALL 4 CHANNELS AUTOMATICALLY TRIGGERED! Voice Call & SMS live, Email sent to 4 officials, WhatsApp opened!`, 'success');

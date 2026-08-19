@@ -58,6 +58,22 @@ export function IncidentReviewModal({
   const [isPlayingAudio, setIsPlayingAudio] = useState(false);
   const [dispatchedTeamName, setDispatchedTeamName] = useState<string | null>(null);
   const [showDispatchBanner, setShowDispatchBanner] = useState(false);
+  const [isPhoneCallActive, setIsPhoneCallActive] = useState(false);
+  const [callDurationSeconds, setCallDurationSeconds] = useState(0);
+
+  useEffect(() => {
+    let interval: any = null;
+    if (isPhoneCallActive) {
+      interval = setInterval(() => {
+        setCallDurationSeconds((prev) => prev + 1);
+      }, 1000);
+    } else {
+      setCallDurationSeconds(0);
+    }
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [isPhoneCallActive]);
 
   if (!isOpen || !incident) return null;
 
@@ -134,7 +150,9 @@ export function IncidentReviewModal({
       `⚡ *ACTION REQUIRED:* Mobilize tactical rescue unit immediately.`;
 
     const url = `https://api.whatsapp.com/send?phone=918838225583&text=${encodeURIComponent(rawMsg)}`;
-    window.open(url, '_blank');
+    try {
+      window.open(url, '_blank');
+    } catch (e) {}
   };
 
   const handleExecuteDispatch = () => {
@@ -142,19 +160,20 @@ export function IncidentReviewModal({
     setDispatchedTeamName(teamToDispatch);
     setShowDispatchBanner(true);
 
-    // 1. Call server-side PATCH dispatch
-    onAssignTeam(incident.id, teamToDispatch);
+    // 1. Open WhatsApp synchronously FIRST to bypass popup blocker
+    handleOpenWhatsApp(teamToDispatch);
 
-    // 2. Play Audible Voice Call announcement directly in browser
+    // 2. Activate Live Emergency Phone Call HUD + Synthesized Indian Voice Alert
+    setIsPhoneCallActive(true);
     handleSpeakVoiceCall(teamToDispatch);
 
     // 3. Send FormSubmit Email to all 4 officials
     handleSendFormSubmitEmailClient(teamToDispatch);
 
-    // 4. Open WhatsApp directly
-    handleOpenWhatsApp(teamToDispatch);
+    // 4. Call server-side PATCH dispatch
+    onAssignTeam(incident.id, teamToDispatch);
 
-    // Switch to Dispatch Channels tab for clear visibility
+    // 5. Switch to Dispatch Channels tab for clear visibility
     setActiveTab('DISPATCH_CHANNELS');
   };
 
@@ -203,6 +222,72 @@ export function IncidentReviewModal({
             <X className="w-5 h-5" />
           </button>
         </div>
+
+        {/* LIVE INCOMING PHONE CALL HUD */}
+        {isPhoneCallActive && (
+          <div className="p-4 rounded-2xl bg-gradient-to-r from-red-950 via-slate-900 to-red-950 border-2 border-red-500 shadow-2xl shadow-red-950/80 animate-in fade-in slide-in-from-top-3 space-y-3 shrink-0">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className="w-3 h-3 rounded-full bg-red-500 animate-ping" />
+                <span className="text-xs font-mono font-black text-red-300 uppercase tracking-widest flex items-center gap-1.5">
+                  <PhoneCall className="w-4 h-4 text-red-400" /> LIVE DISPATCH CALL CONNECTED
+                </span>
+              </div>
+              <span className="text-xs font-mono bg-red-500/25 text-red-200 px-3 py-1 rounded-full border border-red-500/50 font-bold">
+                00:{callDurationSeconds < 10 ? `0${callDurationSeconds}` : callDurationSeconds}
+              </span>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+              <div className="p-2.5 rounded-xl bg-black/50 border border-red-500/30">
+                <span className="text-[10px] text-slate-400 block">Twilio Dispatch Caller:</span>
+                <strong className="text-white font-mono">+1 (737) 221-2163 (RESQ COMMAND)</strong>
+              </div>
+              <div className="p-2.5 rounded-xl bg-black/50 border border-red-500/30">
+                <span className="text-[10px] text-slate-400 block">Recipient Official:</span>
+                <strong className="text-emerald-300 font-mono">+91 8838225583 (Higher Official)</strong>
+              </div>
+            </div>
+
+            {/* Waveform & Speech Subtitle */}
+            <div className="p-3 rounded-xl bg-slate-950 border border-white/10 space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-mono text-cyan-400 flex items-center gap-1">
+                  <Volume2 className="w-3 h-3 animate-pulse" /> Indian Voice Synthesizer (Polly.Aditi Audio Active)
+                </span>
+                {/* Animated Waveform Bars */}
+                <div className="flex items-center gap-1 h-3">
+                  <div className="w-1 bg-red-500 rounded-full animate-bounce h-3" />
+                  <div className="w-1 bg-cyan-400 rounded-full animate-bounce h-2" style={{ animationDelay: '150ms' }} />
+                  <div className="w-1 bg-red-400 rounded-full animate-bounce h-4" style={{ animationDelay: '300ms' }} />
+                  <div className="w-1 bg-emerald-400 rounded-full animate-bounce h-2.5" style={{ animationDelay: '75ms' }} />
+                  <div className="w-1 bg-cyan-300 rounded-full animate-bounce h-3.5" style={{ animationDelay: '225ms' }} />
+                </div>
+              </div>
+              <p className="text-[11px] text-slate-200 font-mono italic leading-relaxed bg-black/40 p-2.5 rounded-lg border border-white/5">
+                &ldquo;Attention Emergency Response Command. Critical RESQ incident alert. Emergency category: {incident.type}. Location: {incident.address}. {incident.peopleAffected} citizens in danger. AI calculated risk score is {incident.riskScore} percent. Unit {dispatchedTeamName || incident.assignedTeam || 'Alpha Search & Rescue'} has been deployed. Immediate action required.&rdquo;
+              </p>
+            </div>
+
+            <div className="flex items-center justify-between gap-2 pt-1">
+              <button
+                onClick={() => handleSpeakVoiceCall(dispatchedTeamName || incident.assignedTeam || 'Alpha Search & Rescue')}
+                className="px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-white font-bold text-xs flex items-center gap-1"
+              >
+                <RotateCw className="w-3 h-3" /> Replay Voice Audio
+              </button>
+              <button
+                onClick={() => {
+                  if (typeof window !== 'undefined' && 'speechSynthesis' in window) window.speechSynthesis.cancel();
+                  setIsPhoneCallActive(false);
+                }}
+                className="px-4 py-1.5 rounded-xl bg-red-600 hover:bg-red-500 text-white font-bold text-xs flex items-center gap-1.5 shadow"
+              >
+                <PhoneCall className="w-3 h-3" /> End Call
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Tab Navigation */}
         <div className="flex items-center gap-1.5 border-b border-white/10 pb-2 overflow-x-auto shrink-0 text-xs">
