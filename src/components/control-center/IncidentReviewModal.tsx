@@ -163,7 +163,8 @@ export function IncidentReviewModal({
         headers: {
           'Title': 'RESQ Emergency Dispatch',
           'Priority': '5',
-          'Tags': 'rotating_light,sos,fire_engine',
+          'X-Priority': '5',
+          'Tags': 'rotating_light,warning,loud_sound,fire_engine',
         },
         body: ntfyBody,
       }).catch(() => {});
