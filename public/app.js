@@ -1823,7 +1823,7 @@ function autoSendNtfyPush(inc, teamName) {
     fetch('https://ntfy.sh/resq-saran-alerts', {
       method: 'POST',
       headers: {
-        'Title': '🚨 RESQ Emergency Dispatch',
+        'Title': 'RESQ Emergency Dispatch',
         'Priority': '5',
         'Tags': 'rotating_light,sos,fire_engine'
       },
