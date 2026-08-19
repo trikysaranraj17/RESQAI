@@ -376,12 +376,20 @@ export function IncidentReviewModal({
                   <p className="text-[11px] text-slate-400 leading-tight">
                     Voice Call transmits spoken alert: "Attention Higher Official. Priority {incident.priority} Alert: {incident.type} at {incident.address}. {incident.peopleAffected} civilians trapped."
                   </p>
-                  <button
-                    onClick={() => handleSpeakVoiceCall(dispatchedTeamName || incident.assignedTeam || 'Alpha Search & Rescue')}
-                    className="w-full py-2 bg-red-600/20 hover:bg-red-600/30 border border-red-500/40 text-red-200 font-bold text-xs rounded-xl flex items-center justify-center gap-1.5"
-                  >
-                    <Volume2 className="w-3.5 h-3.5" /> Play Spoken Voice Call Audio
-                  </button>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => handleSpeakVoiceCall(dispatchedTeamName || incident.assignedTeam || 'Alpha Search & Rescue')}
+                      className="flex-1 py-2 bg-red-600/30 hover:bg-red-600/40 border border-red-500/40 text-red-200 font-bold text-xs rounded-xl flex items-center justify-center gap-1.5"
+                    >
+                      <Volume2 className="w-3.5 h-3.5" /> Play Voice Alert Audio
+                    </button>
+                    <a
+                      href={`tel:${targetPhone}`}
+                      className="px-3 py-2 bg-red-600 hover:bg-red-500 text-white font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 shadow"
+                    >
+                      <PhoneCall className="w-3.5 h-3.5" /> Call Direct
+                    </a>
+                  </div>
                 </div>
 
                 {/* 2. SMS Card */}
@@ -398,6 +406,12 @@ export function IncidentReviewModal({
                   <div className="p-2 rounded-xl bg-slate-900 text-[10px] text-slate-300 font-mono">
                     🚨 [RESQ ALERT] {incident.priority}: {incident.type} at {incident.address}. {incident.peopleAffected} victim(s). Risk: {incident.riskScore}%.
                   </div>
+                  <a
+                    href={`sms:${targetPhone}?body=${encodeURIComponent(`🚨 [RESQ EMERGENCY ALERT] ${incident.priority} (${incident.riskLevel}): ${incident.type} reported at ${incident.address}. ${incident.peopleAffected} victim(s) in danger. AI Risk: ${incident.riskScore}%. Assigned: ${dispatchedTeamName || incident.assignedTeam || 'Alpha Search & Rescue'}.`)}`}
+                    className="w-full py-2 bg-cyan-600 hover:bg-cyan-500 text-white font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 shadow block text-center"
+                  >
+                    <MessageSquare className="w-3.5 h-3.5 inline" /> Send / Open Native SMS Messenger
+                  </a>
                 </div>
 
                 {/* 3. WhatsApp Card */}
@@ -414,12 +428,14 @@ export function IncidentReviewModal({
                   <p className="text-[11px] text-slate-400 leading-tight">
                     Structured tactical situation briefing with markdown tags, incident telemetry, and GPS coordinates.
                   </p>
-                  <button
-                    onClick={() => handleOpenWhatsApp(dispatchedTeamName || incident.assignedTeam || 'Alpha Search & Rescue')}
-                    className="w-full py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 shadow"
+                  <a
+                    href={`https://api.whatsapp.com/send?phone=918838225583&text=${encodeURIComponent(`🚨 *RESQ EMERGENCY DISPATCH ALERT* 🚨\n━━━━━━━━━━━━━━━━━━━━━━━━━━\n⚠️ *Priority:* ${incident.priority || 'P1'} (${incident.riskLevel || 'Critical'})\n🚨 *Category:* ${incident.type}\n📍 *Location:* ${incident.address}\n👥 *Victims in Danger:* ${incident.peopleAffected} Person(s)\n🎯 *AI Risk Score:* ${incident.riskScore}%\n🚒 *Assigned Unit:* ${dispatchedTeamName || incident.assignedTeam || 'Alpha Search & Rescue'}\n🆔 *Incident ID:* ${incident.id}\n🗺️ *GPS:* ${incident.latitude}, ${incident.longitude}\n📝 *Situation:* ${incident.description || 'Emergency assistance needed.'}\n━━━━━━━━━━━━━━━━━━━━━━━━━━\n⚡ *ACTION REQUIRED:* Mobilize tactical rescue unit immediately.`)}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="w-full py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 shadow block text-center"
                   >
-                    <ExternalLink className="w-3.5 h-3.5" /> 1-Click Open WhatsApp
-                  </button>
+                    <ExternalLink className="w-3.5 h-3.5 inline" /> 1-Click Open WhatsApp (+918838225583)
+                  </a>
                 </div>
 
                 {/* 4. Email to 4 Higher Officials Card */}
@@ -429,7 +445,7 @@ export function IncidentReviewModal({
                       <Mail className="w-4 h-4" /> FormSubmit Email (4 Higher Officials)
                     </span>
                     <span className="text-[10px] font-mono text-emerald-400 bg-emerald-500/20 px-2 py-0.5 rounded-full font-bold">
-                      DISPATCHED
+                      DELIVERED
                     </span>
                   </div>
                   <div className="text-[10px] text-slate-300 font-mono leading-tight truncate">
