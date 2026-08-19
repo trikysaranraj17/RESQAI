@@ -29,12 +29,14 @@ export class NotificationService {
    */
   public static async dispatchCriticalAlert(
     incident: Incident,
-    customTarget?: { phone?: string; email?: string }
+    customTarget?: { phone?: string; email?: string } | 'demo' | 'live' | string
   ): Promise<DispatchNotificationResult> {
     const logs: NotificationLog[] = [];
     const timestamp = new Date().toISOString();
 
-    const targetPhone = customTarget?.phone || DEFAULT_TARGET_PHONE;
+    const targetPhone = (typeof customTarget === 'object' && customTarget?.phone)
+      ? customTarget.phone
+      : DEFAULT_TARGET_PHONE;
     const assignedTeam = incident.assignedTeam || 'Alpha Search & Rescue';
     const area = incident.address || 'Reported Emergency Zone';
     const people = incident.peopleAffected || 1;
