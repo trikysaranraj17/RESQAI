@@ -132,6 +132,18 @@ export function HeaderStrip({
           <span>Scenarios</span>
         </button>
 
+        {/* Siren Alarm Station Link */}
+        <a
+          href="/siren"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="px-2.5 py-1.5 rounded-xl bg-red-600 hover:bg-red-500 text-white text-xs font-bold flex items-center gap-1.5 transition-colors shadow-md"
+          title="Open dedicated Receiver Siren Alarm Station"
+        >
+          <Bell className="w-3.5 h-3.5" />
+          <span>Alarm Station</span>
+        </a>
+
         {/* What-If Sim Button */}
         <button
           onClick={onOpenSimulation}
