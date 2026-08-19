@@ -1867,12 +1867,20 @@ function renderDispatchAlertOverlay() {
             </div>
             <div class="text-xs text-white font-mono font-bold">${d.targets.phone}</div>
             <p class="text-[11px] text-slate-400 leading-tight">Spoken speech: "Attention Higher Official. Priority ${inc.priority} Emergency Alert: ${inc.type} at ${inc.address}. ${inc.peopleAffected} trapped. AI Risk ${inc.riskScore}%. Dispatched ${d.teamName}."</p>
-            <button
-              onclick="playRadioDispatchBeep('Attention Higher Official. Priority ${inc.priority} Emergency Alert from RESQ Command System. Emergency type ${inc.type} at ${inc.address}. ${inc.peopleAffected} citizens trapped. AI calculated composite risk score is ${inc.riskScore} percent. Assigned response team ${d.teamName}. Immediate response is required.')"
-              class="w-full py-2 bg-red-600/20 hover:bg-red-600/30 border border-red-500/40 text-red-200 font-bold text-xs rounded-xl flex items-center justify-center gap-1.5"
-            >
-              <i data-lucide="volume-2" class="w-3.5 h-3.5"></i> Replay Official Spoken Dispatch Voice
-            </button>
+            <div class="flex gap-2">
+              <button
+                onclick="playRadioDispatchBeep('Attention Higher Official. Priority ${inc.priority} Emergency Alert from RESQ Command System. Emergency type ${inc.type} at ${inc.address}. ${inc.peopleAffected} citizens trapped. AI calculated composite risk score is ${inc.riskScore} percent. Assigned response team ${d.teamName}. Immediate response is required.')"
+                class="flex-1 py-2 bg-red-600/20 hover:bg-red-600/30 border border-red-500/40 text-red-200 font-bold text-xs rounded-xl flex items-center justify-center gap-1.5"
+              >
+                <i data-lucide="volume-2" class="w-3.5 h-3.5"></i> Replay Spoken Audio
+              </button>
+              <a
+                href="tel:${d.targets.phone}"
+                class="px-3 py-2 bg-red-600 hover:bg-red-500 text-white font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 shadow"
+              >
+                <i data-lucide="phone" class="w-3.5 h-3.5"></i> Direct Call
+              </a>
+            </div>
           </div>
 
           <!-- SMS Alert Card -->
@@ -1881,13 +1889,18 @@ function renderDispatchAlertOverlay() {
               <span class="text-xs font-bold text-cyan-400 flex items-center gap-1.5">
                 <i data-lucide="message-square" class="w-4 h-4"></i> SMS Tactical Alert
               </span>
-              <span class="text-[10px] font-mono text-emerald-400 bg-emerald-500/20 px-2 py-0.5 rounded-full font-bold">AUTOMATICALLY SENT</span>
+              <span class="text-[10px] font-mono text-emerald-400 bg-emerald-500/20 px-2 py-0.5 rounded-full font-bold">SENT</span>
             </div>
             <div class="text-xs text-white font-mono font-bold">${d.targets.phone}</div>
-            <p class="text-[11px] text-slate-400 leading-tight">Twilio carrier SMS text broadcast with incident priority, location, and casualties transmitted directly.</p>
             <div class="bg-slate-900 p-2 rounded-xl text-[10px] text-slate-300 font-mono">
               🚨 RESQ ALERT [${inc.priority}]: ${inc.type} at ${inc.address}. Victims: ${inc.peopleAffected}. Risk: ${inc.riskScore}%.
             </div>
+            <a
+              href="sms:${d.targets.phone}?body=${encodeURIComponent(`🚨 [RESQ ALERT ${inc.priority}]: ${inc.type} at ${inc.address}. Victims: ${inc.peopleAffected}. Risk: ${inc.riskScore}%. Dispatched ${d.teamName}.`)}"
+              class="w-full py-2 bg-cyan-600 hover:bg-cyan-500 text-white font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 shadow block text-center"
+            >
+              <i data-lucide="send" class="w-3.5 h-3.5 inline"></i> Open Native SMS Messenger
+            </a>
           </div>
 
           <!-- WhatsApp Direct Card -->
