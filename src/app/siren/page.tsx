@@ -14,9 +14,50 @@ export default function SirenStationPage() {
   const oscillator2Ref = useRef<OscillatorNode | null>(null);
   const modulatorRef = useRef<OscillatorNode | null>(null);
 
-  // Subscribe to SSE stream for real-time dispatch updates
+  const initializedIncidentsRef = useRef<Set<string>>(new Set());
+  const isInitializedRef = useRef<boolean>(false);
+
+  // Subscribe to SSE stream and polling for real-time dispatch updates
   useEffect(() => {
     let eventSource: EventSource | null = null;
+
+    // Initial load & Polling Fallback
+    const pollIncidents = async () => {
+      try {
+        const res = await fetch('/api/incidents');
+        const data = await res.json();
+        if (data.success && Array.isArray(data.incidents)) {
+          const activeList: Incident[] = data.incidents;
+
+          // If we haven't initialized, populate existing in-progress incidents as already handled
+          if (!isInitializedRef.current) {
+            activeList.forEach((inc) => {
+              if (inc.status === 'IN PROGRESS') {
+                initializedIncidentsRef.current.add(inc.id);
+              }
+            });
+            isInitializedRef.current = true;
+            return;
+          }
+
+          // Check for any new IN PROGRESS incident
+          const newDispatch = activeList.find(
+            (inc) => inc.status === 'IN PROGRESS' && !initializedIncidentsRef.current.has(inc.id)
+          );
+
+          if (newDispatch) {
+            initializedIncidentsRef.current.add(newDispatch.id);
+            setActiveIncident(newDispatch);
+            setIsTriggered(true);
+          }
+        }
+      } catch (e) {
+        console.warn('Polling fallback failed:', e);
+      }
+    };
+
+    pollIncidents();
+    const interval = setInterval(pollIncidents, 1500);
 
     try {
       eventSource = new EventSource('/api/realtime');
@@ -28,8 +69,9 @@ export default function SirenStationPage() {
 
           const updated: Incident = payload.incident;
           
-          // Trigger when status changes to IN PROGRESS (Dispatched)
-          if (updated.status === 'IN PROGRESS') {
+          // Trigger when status changes to IN PROGRESS (Dispatched) and not already handled
+          if (updated.status === 'IN PROGRESS' && !initializedIncidentsRef.current.has(updated.id)) {
+            initializedIncidentsRef.current.add(updated.id);
             setActiveIncident(updated);
             setIsTriggered(true);
           }
@@ -45,6 +87,7 @@ export default function SirenStationPage() {
       if (eventSource) {
         eventSource.close();
       }
+      clearInterval(interval);
       stopSirenAlarm();
     };
   }, []);
