@@ -30,15 +30,19 @@ export default function SirenStationPage() {
         if (data.success && Array.isArray(data.incidents)) {
           const activeList: Incident[] = data.incidents;
 
-          // If we haven't initialized, populate existing in-progress incidents as already handled
+          // If we haven't initialized, populate older in-progress incidents as already handled.
+          // If the dispatch update is recent (within 5 minutes), let it trigger the alarm!
           if (!isInitializedRef.current) {
             activeList.forEach((inc) => {
               if (inc.status === 'IN PROGRESS') {
-                initializedIncidentsRef.current.add(inc.id);
+                const diffMs = Date.now() - new Date(inc.updatedAt || inc.createdAt).getTime();
+                // If it was dispatched more than 5 minutes ago, mark it as handled so it doesn't trigger
+                if (Math.abs(diffMs) > 5 * 60 * 1000) {
+                  initializedIncidentsRef.current.add(inc.id);
+                }
               }
             });
             isInitializedRef.current = true;
-            return;
           }
 
           // Check for any new IN PROGRESS incident
