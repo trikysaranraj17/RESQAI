@@ -295,6 +295,8 @@ export class NotificationService {
       console.warn('Supabase log error:', err.message);
     }
 
+    const emailSent = emailStatus === 'DELIVERED';
+
     return {
       logs,
       criticalAlertTriggered: true,
