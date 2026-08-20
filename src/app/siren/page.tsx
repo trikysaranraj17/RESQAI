@@ -13,6 +13,7 @@ export default function SirenStationPage() {
   const oscillator1Ref = useRef<OscillatorNode | null>(null);
   const oscillator2Ref = useRef<OscillatorNode | null>(null);
   const modulatorRef = useRef<OscillatorNode | null>(null);
+  const pulseIntervalRef = useRef<any>(null);
 
   const initializedIncidentsRef = useRef<Set<string>>(new Set());
   const isInitializedRef = useRef<boolean>(false);
@@ -108,6 +109,10 @@ export default function SirenStationPage() {
       if (!isUnlocked) {
         unlockAudio();
       }
+      // Proactively resume context on any interaction to prevent background suspension
+      if (audioCtxRef.current && audioCtxRef.current.state === 'suspended') {
+        audioCtxRef.current.resume();
+      }
     };
     window.addEventListener('click', handleUnlock);
     window.addEventListener('touchstart', handleUnlock);
@@ -148,23 +153,24 @@ export default function SirenStationPage() {
         ctx.resume();
       }
 
+      // Generate a sharp dual-tone emergency buzzer (Square + Sine Combination)
       const osc1 = ctx.createOscillator();
       const osc2 = ctx.createOscillator();
       const gainNode = ctx.createGain();
 
-      osc1.type = 'sawtooth';
-      osc2.type = 'sine';
+      osc1.type = 'square'; // Square wave creates that classic harsh "buzzer" sound
+      osc2.type = 'sawtooth';
 
-      osc1.frequency.setValueAtTime(550, ctx.currentTime);
-      osc2.frequency.setValueAtTime(850, ctx.currentTime);
+      osc1.frequency.setValueAtTime(220, ctx.currentTime); // Low aggressive buzz
+      osc2.frequency.setValueAtTime(440, ctx.currentTime); // Mid-tone siren sweep
 
       const modulator = ctx.createOscillator();
       const modulatorGain = ctx.createGain();
-      modulator.frequency.value = 2.0; // Oscillates twice a second
-      modulatorGain.gain.value = 250; // Sweeps pitch up and down
+      modulator.frequency.value = 3.5; // Rapid sweeps (3.5 times per second)
+      modulatorGain.gain.value = 120; // Pitch variation range
 
       modulator.connect(modulatorGain);
-      modulatorGain.gain.setValueAtTime(250, ctx.currentTime);
+      modulatorGain.gain.setValueAtTime(120, ctx.currentTime);
       modulatorGain.connect(osc1.frequency);
       modulatorGain.connect(osc2.frequency);
 
@@ -172,6 +178,7 @@ export default function SirenStationPage() {
       osc2.connect(gainNode);
       gainNode.connect(ctx.destination);
 
+      // Start initial volume
       gainNode.gain.setValueAtTime(0.9, ctx.currentTime);
 
       modulator.start();
@@ -182,7 +189,24 @@ export default function SirenStationPage() {
       oscillator2Ref.current = osc2;
       modulatorRef.current = modulator;
 
-      // Speak alert details via speech synthesis
+      // 🚨 PULSING/INTERMITTENT CYCLE: Plays buzzer sound "in sometimes only" (1.0s ON, 0.8s OFF)
+      let beepState = true;
+      pulseIntervalRef.current = setInterval(() => {
+        try {
+          if (ctx.state === 'running') {
+            if (beepState) {
+              // Turn off buzzer volume
+              gainNode.gain.setValueAtTime(0.0, ctx.currentTime);
+            } else {
+              // Restore buzzer volume
+              gainNode.gain.setValueAtTime(0.9, ctx.currentTime);
+            }
+            beepState = !beepState;
+          }
+        } catch (err) {}
+      }, 1000);
+
+      // Speak alert details via speech synthesis during silent periods
       if ('speechSynthesis' in window && activeIncident) {
         window.speechSynthesis.cancel();
         const text = `Warning. Emergency dispatch active. Incident Type: ${activeIncident.type}. Location: ${activeIncident.address}. Priority: ${activeIncident.priority}. Standby for action.`;
@@ -198,6 +222,10 @@ export default function SirenStationPage() {
 
   const stopSirenAlarm = () => {
     try {
+      if (pulseIntervalRef.current) {
+        clearInterval(pulseIntervalRef.current);
+        pulseIntervalRef.current = null;
+      }
       if (oscillator1Ref.current) {
         try { oscillator1Ref.current.stop(); } catch (e) {}
         oscillator1Ref.current = null;
