@@ -77,11 +77,13 @@ export class NotificationService {
         callSid = voiceData.sid;
         voiceLogStatus = 'DELIVERED';
       } else {
+        voiceLogStatus = 'FAILED';
         voiceError = voiceData.message || `HTTP ${voiceRes.status}`;
         callSid = `TWILIO-HTTP-${voiceRes.status}`;
         console.warn('Twilio Voice Call notice:', voiceError);
       }
     } catch (e: any) {
+      voiceLogStatus = 'FAILED';
       voiceError = e.message;
       callSid = 'TWILIO-CONNECTION-TIMEOUT';
       console.warn('Twilio Voice exception:', e.message);
@@ -132,11 +134,13 @@ export class NotificationService {
         smsSid = smsData.sid;
         smsLogStatus = 'DELIVERED';
       } else {
+        smsLogStatus = 'FAILED';
         smsError = smsData.message || `HTTP ${smsRes.status}`;
         smsSid = `TWILIO-HTTP-${smsRes.status}`;
         console.warn('Twilio SMS notice:', smsError);
       }
     } catch (e: any) {
+      smsLogStatus = 'FAILED';
       smsError = e.message;
       smsSid = 'TWILIO-CONNECTION-TIMEOUT';
       console.warn('Twilio SMS exception:', e.message);
@@ -158,7 +162,8 @@ export class NotificationService {
     // ----------------------------------------------------
     // 3. AUTOMATED FORMSUBMIT EMAIL TO ALL 4 HIGHER OFFICIALS
     // ----------------------------------------------------
-    let emailSent = true;
+    let emailStatus = 'DELIVERED';
+    let emailError = '';
     try {
       const emailPayload = {
         _subject: `🚨 [AUTOMATED RESQ DISPATCH] ${incident.priority}: ${incident.type} at ${area}`,
@@ -180,7 +185,7 @@ export class NotificationService {
         'SYSTEM URL': 'https://resq-ai-emergency.vercel.app/control-center',
       };
 
-      await fetch('https://formsubmit.co/ajax/trikysaran5721@gmail.com', {
+      const emailRes = await fetch('https://formsubmit.co/ajax/trikysaran5721@gmail.com', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -188,7 +193,13 @@ export class NotificationService {
         },
         body: JSON.stringify(emailPayload),
       });
+      if (!emailRes.ok) {
+        emailStatus = 'FAILED';
+        emailError = `HTTP ${emailRes.status}`;
+      }
     } catch (e: any) {
+      emailStatus = 'FAILED';
+      emailError = e.message;
       console.warn('FormSubmit email notice:', e.message);
     }
 
@@ -197,10 +208,12 @@ export class NotificationService {
       incidentId: incident.id,
       channel: 'EMAIL',
       recipient: OFFICIAL_EMAILS.join(', '),
-      status: 'DELIVERED',
+      status: emailStatus as any,
       providerReference: 'FORMSUBMIT-4-OFFICIALS-DIRECT',
       timestamp,
-      messagePreview: `Automated Email to 4 Higher Officials: trikysaran5721, mediaestelle7, nandhini301107, kavipriyaps2401`,
+      messagePreview: emailError
+        ? `[FormSubmit Email]: ${emailError}`
+        : `Automated Email to 4 Higher Officials: trikysaran5721, mediaestelle7, nandhini301107, kavipriyaps2401`,
       retryCount: 0,
       isSimulated: false,
     });

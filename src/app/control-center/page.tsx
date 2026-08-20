@@ -21,6 +21,7 @@ import { WhatIfSimulator } from '@/components/control-center/WhatIfSimulator';
 import { ResponseTeamsModal } from '@/components/control-center/ResponseTeamsModal';
 import { AlertHistoryModal } from '@/components/control-center/AlertHistoryModal';
 import { DemoScenariosModal } from '@/components/control-center/DemoScenariosModal';
+import { UnaccountedSection } from '@/components/control-center/UnaccountedSection';
 import { Bell, AlertTriangle, Sparkles, CheckCircle2, Radio } from 'lucide-react';
 
 export default function ControlCenterDashboard() {
@@ -414,13 +415,21 @@ export default function ControlCenterDashboard() {
             />
           </div>
 
-          {/* Right Column: Weather Radar & Priority Queue (3.5 cols on desktop) */}
-          <div className="lg:col-span-3 xl:col-span-3 space-y-3.5 flex flex-col justify-between">
+          {/* Right Column: Weather Radar, Priority Queue & Unaccounted (3.5 cols on desktop) */}
+          <div className="lg:col-span-3 xl:col-span-3 space-y-3.5 flex flex-col">
             <WeatherPanel weather={weather} />
             <PriorityQueue
               incidents={incidents}
               onSelectIncident={(id) => setSelectedIncidentId(id)}
               onReviewIncident={(inc) => setReviewIncident(inc)}
+            />
+            <UnaccountedSection
+              notifications={notifications}
+              onRefresh={async () => {
+                const res = await fetch('/api/notifications');
+                const data = await res.json();
+                if (data.success) setNotifications(data.logs);
+              }}
             />
           </div>
         </div>
