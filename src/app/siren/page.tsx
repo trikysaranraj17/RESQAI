@@ -102,18 +102,28 @@ export default function SirenStationPage() {
     return () => stopSirenAlarm();
   }, [isTriggered, isUnlocked]);
 
+  // Unlock audio globally on click/tap
+  useEffect(() => {
+    const handleUnlock = () => {
+      if (!isUnlocked) {
+        unlockAudio();
+      }
+    };
+    window.addEventListener('click', handleUnlock);
+    window.addEventListener('touchstart', handleUnlock);
+    return () => {
+      window.removeEventListener('click', handleUnlock);
+      window.removeEventListener('touchstart', handleUnlock);
+    };
+  }, [isUnlocked]);
+
   const unlockAudio = () => {
     try {
       const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
       if (AudioContext) {
-        const dummyCtx = new AudioContext();
-        const osc = dummyCtx.createOscillator();
-        const gain = dummyCtx.createGain();
-        osc.connect(gain);
-        gain.connect(dummyCtx.destination);
-        gain.gain.setValueAtTime(0.01, dummyCtx.currentTime);
-        osc.start();
-        osc.stop(dummyCtx.currentTime + 0.05);
+        const ctx = new AudioContext();
+        ctx.resume();
+        audioCtxRef.current = ctx;
       }
       setIsUnlocked(true);
     } catch (e) {
@@ -126,10 +136,17 @@ export default function SirenStationPage() {
       // Ensure any existing audio is stopped
       stopSirenAlarm();
 
-      const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
-      if (!AudioContext) return;
-      const ctx = new AudioContext();
-      audioCtxRef.current = ctx;
+      let ctx = audioCtxRef.current;
+      if (!ctx) {
+        const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
+        if (!AudioContext) return;
+        ctx = new AudioContext();
+        audioCtxRef.current = ctx;
+      }
+
+      if (ctx.state === 'suspended') {
+        ctx.resume();
+      }
 
       const osc1 = ctx.createOscillator();
       const osc2 = ctx.createOscillator();
@@ -147,6 +164,7 @@ export default function SirenStationPage() {
       modulatorGain.gain.value = 250; // Sweeps pitch up and down
 
       modulator.connect(modulatorGain);
+      modulatorGain.gain.setValueAtTime(250, ctx.currentTime);
       modulatorGain.connect(osc1.frequency);
       modulatorGain.connect(osc2.frequency);
 
@@ -181,20 +199,19 @@ export default function SirenStationPage() {
   const stopSirenAlarm = () => {
     try {
       if (oscillator1Ref.current) {
-        oscillator1Ref.current.stop();
+        try { oscillator1Ref.current.stop(); } catch (e) {}
         oscillator1Ref.current = null;
       }
       if (oscillator2Ref.current) {
-        oscillator2Ref.current.stop();
+        try { oscillator2Ref.current.stop(); } catch (e) {}
         oscillator2Ref.current = null;
       }
       if (modulatorRef.current) {
-        modulatorRef.current.stop();
+        try { modulatorRef.current.stop(); } catch (e) {}
         modulatorRef.current = null;
       }
-      if (audioCtxRef.current) {
-        audioCtxRef.current.close();
-        audioCtxRef.current = null;
+      if (audioCtxRef.current && audioCtxRef.current.state === 'running') {
+        audioCtxRef.current.suspend();
       }
     } catch (e) {}
   };
@@ -202,6 +219,7 @@ export default function SirenStationPage() {
   const handleMuteReset = () => {
     setIsTriggered(false);
     setActiveIncident(null);
+    stopSirenAlarm();
   };
 
   return (
